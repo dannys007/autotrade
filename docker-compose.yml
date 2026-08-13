@@ -1,0 +1,15 @@
+services:
+  freqtrade:
+    image: freqtradeorg/freqtrade:stable
+    restart: unless-stopped
+    container_name: autotrade-freqtrade
+    volumes:
+      - "./user_data:/freqtrade/user_data"
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:8080:8080"
+    command: >
+      trade
+      --config /freqtrade/user_data/config.json
+      --strategy TrendFollowingStrategy
