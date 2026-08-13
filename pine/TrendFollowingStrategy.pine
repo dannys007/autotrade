@@ -53,17 +53,48 @@ stopDist = atr * atrMult
 riskAmount = strategy.equity * riskPerTradePct
 qty = stopDist > 0 ? riskAmount / stopDist : 0.0
 
+breakevenBufferPct = input.float(0.2, "Breakeven buffer (%)", step=0.05) / 100
+breakevenAtRMultiple = input.float(1.0, "Move stop to breakeven after (x initial risk)", step=0.1)
+
+var float longInitStopDist = na
+var float longStopLevel = na
+var float shortInitStopDist = na
+var float shortStopLevel = na
+
 if longCond and strategy.position_size <= 0
-    stopPrice = close - stopDist
+    longInitStopDist := stopDist
+    longStopLevel := close - stopDist
     strategy.entry("Long", strategy.long, qty=qty)
-    strategy.exit("Long Exit", from_entry="Long", stop=stopPrice)
     alert("LONG " + syminfo.ticker + " @ " + str.tostring(close), alert.freq_once_per_bar_close)
 
 if shortCond and strategy.position_size >= 0
-    stopPrice = close + stopDist
+    shortInitStopDist := stopDist
+    shortStopLevel := close + stopDist
     strategy.entry("Short", strategy.short, qty=qty)
-    strategy.exit("Short Exit", from_entry="Short", stop=stopPrice)
     alert("SHORT " + syminfo.ticker + " @ " + str.tostring(close), alert.freq_once_per_bar_close)
+
+// Breakeven ratchet: once profit reaches `breakevenAtRMultiple` times the
+// initial ATR stop distance, move the stop to breakeven + buffer so the
+// trade can no longer round-trip back into a loss. This is what was
+// missing before -- big winners (e.g. the Feb/Jun trend legs) were giving
+// back most of their gains during the chop that followed.
+if strategy.position_size > 0
+    longEntryPrice = strategy.position_avg_price
+    if not na(longInitStopDist) and (close - longEntryPrice) >= longInitStopDist * breakevenAtRMultiple
+        longStopLevel := math.max(longStopLevel, longEntryPrice * (1 + breakevenBufferPct))
+    strategy.exit("Long Exit", from_entry="Long", stop=longStopLevel)
+else
+    longStopLevel := na
+    longInitStopDist := na
+
+if strategy.position_size < 0
+    shortEntryPrice = strategy.position_avg_price
+    if not na(shortInitStopDist) and (shortEntryPrice - close) >= shortInitStopDist * breakevenAtRMultiple
+        shortStopLevel := math.min(shortStopLevel, shortEntryPrice * (1 - breakevenBufferPct))
+    strategy.exit("Short Exit", from_entry="Short", stop=shortStopLevel)
+else
+    shortStopLevel := na
+    shortInitStopDist := na
 
 if longExitCond and strategy.position_size > 0
     strategy.close("Long", comment="ema_cross_exit")

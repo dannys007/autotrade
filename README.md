@@ -52,10 +52,37 @@ testnet → live dengan modal kecil.
   - `MaxDrawdown` — bot berhenti sementara jika drawdown melebihi 10%
     dalam periode lookback
 - **Leverage rendah** (≤3x) untuk membatasi risiko likuidasi.
+- **Breakeven-stop ratchet:** setelah profit sebuah trade mencapai 1x
+  jarak stoploss awalnya (1R), stop otomatis digeser ke breakeven+buffer
+  kecil. Ini melindungi keuntungan dari trend-trade besar supaya tidak
+  habis lagi diberikan ke market saat kondisi berubah choppy setelahnya
+  — masalah yang muncul di backtest awal (equity naik tajam saat dapat
+  tren besar, lalu tergerus pelan >50% dari puncaknya sebelum tren
+  berikutnya).
 
 Semua parameter ini bisa diubah di `user_data/strategies/TrendFollowingStrategy.py`
-(atribut `risk_per_trade`, `max_leverage`, `adx_threshold`, dst.) dan di
-`user_data/config.json` (`max_open_trades`, `pair_whitelist`, dll).
+(atribut `risk_per_trade`, `max_leverage`, `adx_threshold`,
+`breakeven_at_r_multiple`, dst.) dan di `user_data/config.json`
+(`max_open_trades`, `pair_whitelist`, dll).
+
+### Cara baca hasil backtest (bukan cuma lihat total profit %)
+
+Total profit % saja menyesatkan. Cek juga:
+- **Profit factor** — target minimal ~1.5-2 untuk strategi dengan win
+  rate rendah (khas trend-following). Di bawah itu, edge-nya terlalu
+  tipis untuk menahan biaya transaksi + slippage di kondisi live.
+- **Return / max drawdown** — target rasio minimal ~2:1. Kalau
+  drawdown-nya hampir sebesar return totalnya, itu tanda risk-adjusted
+  return jelek meski angka profit % terlihat positif.
+- **Bentuk equity curve**, bukan cuma angka akhir — apakah profit datang
+  dari beberapa trade besar yang diberikan lagi ke market lewat
+  rentetan kerugian kecil sesudahnya? Itu tanda exit/profit-protection
+  perlu diperbaiki (seperti breakeven-stop di atas), bukan cuma soal
+  entry.
+- **Bandingkan dengan buy-and-hold** di periode yang sama (aktifkan
+  toggle "Buy and hold" di Strategy Tester TradingView) — kalau bot
+  kalah jauh dari buy-and-hold, cek apakah setidaknya drawdown-nya jauh
+  lebih kecil (itu yang membenarkan pakai bot vs hold pasif).
 
 ## Tahapan penggunaan (WAJIB berurutan)
 

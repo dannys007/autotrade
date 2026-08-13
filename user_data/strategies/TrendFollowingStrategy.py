@@ -1,7 +1,7 @@
 # pragma pylint: disable=missing-docstring
 import talib.abstract as ta
 from freqtrade.persistence import Trade
-from freqtrade.strategy import IStrategy, DecimalParameter, IntParameter
+from freqtrade.strategy import IStrategy, DecimalParameter, IntParameter, stoploss_from_open
 from pandas import DataFrame
 
 
@@ -36,6 +36,13 @@ class TrendFollowingStrategy(IStrategy):
     trailing_stop_positive = 0.015
     trailing_stop_positive_offset = 0.03
     trailing_only_offset_is_reached = True
+
+    use_custom_stoploss = True
+    # Once a trade's profit reaches this multiple of its initial ATR stop
+    # distance, ratchet the stop to breakeven so a winner can no longer
+    # round-trip back into a loss (see custom_stoploss below).
+    breakeven_at_r_multiple = 1.0
+    breakeven_buffer = 0.002  # 0.2% past entry, to cover fees/slippage
 
     use_exit_signal = True
     exit_profit_only = False
@@ -203,4 +210,17 @@ class TrendFollowingStrategy(IStrategy):
 
         atr = dataframe["atr"].iloc[-1]
         stop_distance_pct = (atr * self.atr_stop_multiplier.value) / trade.open_rate
+
+        # Profit protection: once the trade has moved `breakeven_at_r_multiple`
+        # times its initial risk in our favor, ratchet the stop to breakeven
+        # (+ small buffer) instead of leaving the original ATR distance in
+        # place. Prevents a winning trade from fully reversing into a loss.
+        if current_profit >= stop_distance_pct * self.breakeven_at_r_multiple:
+            breakeven_sl = stoploss_from_open(
+                self.breakeven_buffer, current_profit,
+                is_short=trade.is_short, leverage=trade.leverage,
+            )
+            if breakeven_sl is not None:
+                return breakeven_sl
+
         return -abs(stop_distance_pct)
