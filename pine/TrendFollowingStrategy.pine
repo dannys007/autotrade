@@ -30,11 +30,19 @@ emaTrend = ta.ema(close, emaTrendLen)
 rsi = ta.rsi(close, rsiLen)
 atr = ta.atr(atrLen)
 
-longCond = ta.crossover(emaFast, emaSlow) and close > emaTrend and
-     adx > adxThreshold and rsi > 40 and rsi < 70
+// "Regime" = sustained trend condition, separate from the entry trigger,
+// so one trend can produce more than one trade (fresh breakout, then
+// pullback resumptions) instead of firing only once at the cross candle.
+uptrend   = emaFast > emaSlow and close > emaTrend and adx > adxThreshold
+downtrend = emaFast < emaSlow and close < emaTrend and adx > adxThreshold
 
-shortCond = allowShort and ta.crossunder(emaFast, emaSlow) and close < emaTrend and
-     adx > adxThreshold and rsi < 60 and rsi > 30
+freshCrossUp   = ta.crossover(emaFast, emaSlow)
+pullbackResumeUp = uptrend and ta.crossover(rsi, 45)
+longCond = (freshCrossUp or pullbackResumeUp) and uptrend and rsi < 70
+
+freshCrossDown   = ta.crossunder(emaFast, emaSlow)
+pullbackResumeDown = downtrend and ta.crossunder(rsi, 55)
+shortCond = allowShort and (freshCrossDown or pullbackResumeDown) and downtrend and rsi > 30
 
 longExitCond  = ta.crossunder(emaFast, emaSlow)
 shortExitCond = ta.crossover(emaFast, emaSlow)

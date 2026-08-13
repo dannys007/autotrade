@@ -82,27 +82,64 @@ class TrendFollowingStrategy(IStrategy):
         return dataframe
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        long_condition = (
+        # "Regime" = sustained trend condition (can hold for many candles),
+        # separate from the entry trigger. This lets a single trend produce
+        # more than one trade -- fresh breakout, then pullback resumptions
+        # -- instead of only firing once at the exact EMA-cross candle.
+        uptrend = (
             (dataframe["ema_fast"] > dataframe["ema_slow"])
-            & (dataframe["ema_fast"].shift(1) <= dataframe["ema_slow"].shift(1))
             & (dataframe["close"] > dataframe["ema_trend"])
             & (dataframe["adx"] > self.adx_threshold.value)
-            & (dataframe["rsi"] < 70)
-            & (dataframe["rsi"] > 40)
-            & (dataframe["volume"] > 0)
         )
-        dataframe.loc[long_condition, ["enter_long", "enter_tag"]] = (1, "ema_cross_up")
-
-        short_condition = (
+        downtrend = (
             (dataframe["ema_fast"] < dataframe["ema_slow"])
-            & (dataframe["ema_fast"].shift(1) >= dataframe["ema_slow"].shift(1))
             & (dataframe["close"] < dataframe["ema_trend"])
             & (dataframe["adx"] > self.adx_threshold.value)
-            & (dataframe["rsi"] > 30)
-            & (dataframe["rsi"] < 60)
+        )
+
+        fresh_cross_up = (
+            (dataframe["ema_fast"] > dataframe["ema_slow"])
+            & (dataframe["ema_fast"].shift(1) <= dataframe["ema_slow"].shift(1))
+        )
+        pullback_resume_up = (
+            uptrend
+            & (dataframe["rsi"] > 45)
+            & (dataframe["rsi"].shift(1) <= 45)
+        )
+        long_condition = (
+            (fresh_cross_up | pullback_resume_up)
+            & uptrend
+            & (dataframe["rsi"] < 70)
             & (dataframe["volume"] > 0)
         )
-        dataframe.loc[short_condition, ["enter_short", "enter_tag"]] = (1, "ema_cross_down")
+        dataframe.loc[long_condition & fresh_cross_up, ["enter_long", "enter_tag"]] = (
+            1, "ema_cross_up",
+        )
+        dataframe.loc[long_condition & ~fresh_cross_up, ["enter_long", "enter_tag"]] = (
+            1, "pullback_resume_up",
+        )
+
+        fresh_cross_down = (
+            (dataframe["ema_fast"] < dataframe["ema_slow"])
+            & (dataframe["ema_fast"].shift(1) >= dataframe["ema_slow"].shift(1))
+        )
+        pullback_resume_down = (
+            downtrend
+            & (dataframe["rsi"] < 55)
+            & (dataframe["rsi"].shift(1) >= 55)
+        )
+        short_condition = (
+            (fresh_cross_down | pullback_resume_down)
+            & downtrend
+            & (dataframe["rsi"] > 30)
+            & (dataframe["volume"] > 0)
+        )
+        dataframe.loc[short_condition & fresh_cross_down, ["enter_short", "enter_tag"]] = (
+            1, "ema_cross_down",
+        )
+        dataframe.loc[short_condition & ~fresh_cross_down, ["enter_short", "enter_tag"]] = (
+            1, "pullback_resume_down",
+        )
 
         return dataframe
 

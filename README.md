@@ -17,12 +17,25 @@ testnet → live dengan modal kecil.
 ## Strategi: `TrendFollowingStrategy`
 
 - **Timeframe:** 4h (mengurangi noise & overtrading dibanding timeframe kecil)
-- **Entry:** EMA20 cross EMA50 searah tren utama (EMA200), dikonfirmasi
-  ADX > 25 (memastikan pasar sedang trending, bukan sideways) dan filter
-  RSI (menghindari entry di kondisi jenuh beli/jual)
+- **Regime tren:** kondisi berkelanjutan EMA20>EMA50, harga di atas/bawah
+  EMA200, dan ADX > 25 (memastikan pasar sedang trending, bukan sideways)
+- **Entry trigger** (dua jenis, keduanya harus dalam regime tren yang sama):
+  1. **Fresh cross** — EMA20 baru saja cross EMA50
+  2. **Pullback resume** — harga masih dalam tren yang sudah berjalan,
+     RSI sempat turun ke area netral lalu naik lagi (indikasi pullback
+     selesai, tren lanjut)
+
+  Pemisahan ini sengaja dilakukan supaya satu tren yang sama bisa
+  menghasilkan lebih dari satu trade (tidak cuma sekali di titik cross
+  persis), karena filter ADX+RSI+EMA-cross yang harus align di candle
+  yang sama menghasilkan sinyal yang sangat jarang (Freqtrade backtest
+  awal: cuma ~14 trade dalam 8 bulan — sample terlalu kecil untuk
+  disimpulkan apa pun secara statistik).
 - **Exit:** EMA cross balik arah, trailing stop, ATR-based stoploss, atau
   ROI bertingkat berdasarkan lama posisi terbuka
 - **Arah:** long & short (futures), leverage dibatasi maksimum 3x
+- **Universe pair:** dinamis, top-15 pair by volume (`VolumePairList`),
+  bukan 4 pair statis — supaya peluang trade lebih banyak & terdiversifikasi
 
 ## Manajemen risiko
 

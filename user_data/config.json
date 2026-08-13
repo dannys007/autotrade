@@ -37,14 +37,23 @@
         "ccxt_async_config": {},
         "pair_whitelist": [
             "BTC/USDT:USDT",
-            "ETH/USDT:USDT",
-            "BNB/USDT:USDT",
-            "SOL/USDT:USDT"
+            "ETH/USDT:USDT"
         ],
-        "pair_blacklist": []
+        "pair_blacklist": [
+            "(BUSD|USDC|TUSD|USDP|EUR|DAI)/.*",
+            ".*(UP|DOWN|BULL|BEAR)/.*"
+        ]
     },
     "pairlists": [
-        {"method": "StaticPairList"}
+        {
+            "method": "VolumePairList",
+            "number_assets": 15,
+            "sort_key": "quoteVolume",
+            "min_value": 0,
+            "refresh_period": 3600
+        },
+        {"method": "PriceFilter", "low_price_ratio": 0.01},
+        {"method": "SpreadFilter", "max_spread_ratio": 0.005}
     ],
     "telegram": {
         "enabled": false,
