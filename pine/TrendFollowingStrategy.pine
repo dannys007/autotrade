@@ -1,0 +1,73 @@
+//@version=5
+strategy("Trend Following EMA Cross (ADX/RSI filter)", overlay=true,
+     initial_capital=1000, currency=currency.USDT,
+     default_qty_type=strategy.fixed, default_qty_value=0,
+     pyramiding=0, calc_on_every_tick=false,
+     commission_type=strategy.commission.percent, commission_value=0.05)
+
+// Same logic as user_data/strategies/TrendFollowingStrategy.py (Freqtrade
+// version). This Pine version is for visual backtesting / signal
+// validation on TradingView spot charts only -- it does NOT simulate
+// futures leverage, funding rate, or liquidation, so results will differ
+// from the Freqtrade futures backtest. Treat it as a sanity check on
+// entry/exit timing, not as a substitute for the Freqtrade backtest.
+
+emaFastLen     = input.int(20, "EMA Fast")
+emaSlowLen     = input.int(50, "EMA Slow")
+emaTrendLen    = input.int(200, "EMA Trend")
+adxLen         = input.int(14, "ADX Length")
+adxThreshold   = input.int(25, "ADX Threshold (trend strength filter)")
+rsiLen         = input.int(14, "RSI Length")
+atrLen         = input.int(14, "ATR Length")
+atrMult        = input.float(2.5, "ATR Stop Multiplier", step=0.1)
+riskPerTradePct = input.float(1.5, "Risk per Trade (% of equity)", step=0.1) / 100
+allowShort     = input.bool(true, "Allow Short Trades")
+
+emaFast  = ta.ema(close, emaFastLen)
+emaSlow  = ta.ema(close, emaSlowLen)
+emaTrend = ta.ema(close, emaTrendLen)
+[diPlus, diMinus, adx] = ta.dmi(adxLen, adxLen)
+rsi = ta.rsi(close, rsiLen)
+atr = ta.atr(atrLen)
+
+longCond = ta.crossover(emaFast, emaSlow) and close > emaTrend and
+     adx > adxThreshold and rsi > 40 and rsi < 70
+
+shortCond = allowShort and ta.crossunder(emaFast, emaSlow) and close < emaTrend and
+     adx > adxThreshold and rsi < 60 and rsi > 30
+
+longExitCond  = ta.crossunder(emaFast, emaSlow)
+shortExitCond = ta.crossover(emaFast, emaSlow)
+
+// Equity-risk-based position sizing: qty sized so a hit on the
+// ATR-based stop equals riskPerTradePct of current strategy equity.
+stopDist = atr * atrMult
+riskAmount = strategy.equity * riskPerTradePct
+qty = stopDist > 0 ? riskAmount / stopDist : 0.0
+
+if longCond and strategy.position_size <= 0
+    stopPrice = close - stopDist
+    strategy.entry("Long", strategy.long, qty=qty)
+    strategy.exit("Long Exit", from_entry="Long", stop=stopPrice)
+    alert("LONG " + syminfo.ticker + " @ " + str.tostring(close), alert.freq_once_per_bar_close)
+
+if shortCond and strategy.position_size >= 0
+    stopPrice = close + stopDist
+    strategy.entry("Short", strategy.short, qty=qty)
+    strategy.exit("Short Exit", from_entry="Short", stop=stopPrice)
+    alert("SHORT " + syminfo.ticker + " @ " + str.tostring(close), alert.freq_once_per_bar_close)
+
+if longExitCond and strategy.position_size > 0
+    strategy.close("Long", comment="ema_cross_exit")
+
+if shortExitCond and strategy.position_size < 0
+    strategy.close("Short", comment="ema_cross_exit")
+
+plot(emaFast, "EMA Fast", color=color.new(color.blue, 0))
+plot(emaSlow, "EMA Slow", color=color.new(color.orange, 0))
+plot(emaTrend, "EMA Trend (200)", color=color.new(color.gray, 0))
+
+plotshape(longCond, title="Long signal", style=shape.triangleup,
+     location=location.belowbar, color=color.green, size=size.small)
+plotshape(shortCond, title="Short signal", style=shape.triangledown,
+     location=location.abovebar, color=color.red, size=size.small)

@@ -92,6 +92,34 @@ Mulai dengan modal kecil yang siap kamu relakan sebagai biaya
 pembelajaran, pantau minimal beberapa minggu, baru pertimbangkan
 menambah modal.
 
+## Versi Pine Script (untuk test visual di TradingView)
+
+File `pine/TrendFollowingStrategy.pine` berisi logika yang sama (EMA
+cross + filter ADX/RSI, ATR stoploss, position sizing berbasis risk %)
+untuk divalidasi visual di TradingView.
+
+**Cara pakai (TradingView tidak bisa "install" script dari GitHub —
+harus copy-paste manual ke Pine Editor):**
+
+1. Buka [tradingview.com](https://www.tradingview.com), buka chart pair
+   yang mau ditest (mis. BTCUSDT, timeframe 4h agar sesuai strategi).
+2. Buka tab **Pine Editor** di panel bawah.
+3. Hapus template default, copy seluruh isi `pine/TrendFollowingStrategy.pine`
+   dari repo ini, paste ke editor.
+4. Klik **Add to Chart**. Lalu buka tab **Strategy Tester** di panel bawah
+   untuk lihat hasil backtest (win rate, profit factor, drawdown, dll).
+
+**Penting:** versi Pine ini jalan di data spot chart TradingView dan
+**tidak mensimulasikan leverage/funding rate/likuidasi futures** —
+gunakan untuk cek visual timing entry/exit saja, bukan pengganti hasil
+backtest Freqtrade di atas (yang mensimulasikan futures secara akurat).
+Kalau ingin strategi Pine ini eksekusi otomatis ke Binance, butuh
+langganan TradingView berbayar (untuk webhook alert) + bridge pihak
+ketiga (mis. 3Commas/WunderTrading) — ini jalur terpisah dari bot
+Freqtrade di atas, punya delay lebih tinggi dan bergantung uptime pihak
+ketiga, jadi **tidak direkomendasikan** dibanding bot Freqtrade untuk
+eksekusi live.
+
 ## Menjalankan
 
 ```bash
